@@ -1,7 +1,9 @@
 .app {
-  max-width: 1100px;
+  width: 100%;
+  max-width: none;
   margin: 0 auto;
-  padding: 32px 20px 60px;
+  padding: 32px clamp(16px, 3vw, 40px) 60px;
+  box-sizing: border-box;
 }
 
 .header {
@@ -27,8 +29,244 @@
   background: rgba(17, 24, 39, 0.72);
   border: 1px solid var(--border);
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
   backdrop-filter: blur(8px);
+}
+
+.panelInner {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+
+.sidebar {
+  padding: 16px;
+  border-right: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.35);
+}
+
+.content {
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.countryPanel {
+  display: grid;
+  gap: 10px;
+}
+
+.countryPanelHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.countryPanelTitle {
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.countryPanelMeta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.countryPanelActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.countryPanelList {
+  display: grid;
+  gap: 8px;
+}
+
+.countryOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text);
+
+  input {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.sortPanel {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+}
+
+.sortTitle {
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.sortHint {
+  float: right;
+  color: var(--muted);
+}
+
+.sortMeta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 14px;
+}
+
+.chartsColumn {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.chartsHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.chartsTitle {
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.chartsMeta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chartsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.pieCard {
+  display: grid;
+  gap: 8px;
+}
+
+.pieTitle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pieWrap {
+  position: relative;
+  width: 220px;
+  height: 220px;
+}
+
+.pieTooltip {
+  position: absolute;
+  transform: translate(-0%, -0%);
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+  pointer-events: none;
+  min-width: 120px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Portaled to document.body — overlays cards, overflow, and sibling charts */
+.pieTooltip--fixed {
+  position: fixed;
+  z-index: 10000;
+  margin: 0;
+}
+
+.pieTooltipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pieTooltipLabel {
+  font-weight: 600;
+}
+
+.pieTooltipMeta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.pieLegend {
+  display: grid;
+  gap: 6px;
+}
+
+.pieLegendItem {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.pieLegendLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pieLegendValue {
+  color: var(--muted);
+}
+
+.pieSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.pieEmpty {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .status {
@@ -44,13 +282,17 @@
 }
 
 .tableWrap {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: auto;
 
   th,
   td {
@@ -58,7 +300,9 @@ table {
     border-bottom: 1px solid var(--border);
     text-align: left;
     vertical-align: top;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   th {
@@ -71,5 +315,16 @@ table {
 
   tbody tr:hover td {
     background: rgba(96, 165, 250, 0.06);
+  }
+}
+
+@media (max-width: 960px) {
+  .panelInner {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
   }
 }
