@@ -4,6 +4,8 @@ type Props = {
   onToggleCountry: (country: string) => void
   onSelectAll: () => void
   onClear: () => void
+  /** e.g. `countryPanel--horizontal` for top bar layout */
+  className?: string
 }
 
 export function CountryFilterPanel({
@@ -12,11 +14,13 @@ export function CountryFilterPanel({
   onToggleCountry,
   onSelectAll,
   onClear,
+  className,
 }: Props) {
   const selectedCount = selectedCountries.size
+  const rootClass = ['countryPanel', className].filter(Boolean).join(' ')
 
   return (
-    <div className="countryPanel">
+    <div className={rootClass}>
       <div className="countryPanelHeader">
         <div className="countryPanelTitle">Countries</div>
         <div className="countryPanelMeta">

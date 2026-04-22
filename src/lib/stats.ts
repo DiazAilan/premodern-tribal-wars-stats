@@ -54,6 +54,32 @@ export function filterRowsByCountries(rows: SheetRow[], selectedCountries: Set<s
   return rows.filter((r) => selectedCountries.has(r.country))
 }
 
+export function normalizeManaLetter(letter: string): string | null {
+  const u = letter.trim().toUpperCase()
+  if (u.length !== 1 || !/[WUBRG]/.test(u)) return null
+  return u
+}
+
+export function rowHasManaLetter(row: SheetRow, letter: string): boolean {
+  const L = normalizeManaLetter(letter)
+  if (!L) return false
+  const raw = row.colors.trim().toUpperCase()
+  if (!raw) return false
+  return raw.includes(L)
+}
+
+export function filterRowsByManaLetter(rows: SheetRow[], letter: string): SheetRow[] {
+  const L = normalizeManaLetter(letter)
+  if (!L) return rows
+  return rows.filter((r) => rowHasManaLetter(r, L))
+}
+
+export function filterRowsByTribe(rows: SheetRow[], tribe: string): SheetRow[] {
+  const t = tribe.trim()
+  if (!t) return rows
+  return rows.filter((r) => r.tribe.trim() === t)
+}
+
 export function computeTribeCounts(rows: SheetRow[]): CountByLabel {
   const counts: CountByLabel = {}
   for (const r of rows) {

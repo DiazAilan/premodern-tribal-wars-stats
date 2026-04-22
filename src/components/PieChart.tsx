@@ -11,6 +11,10 @@ type Props = {
   title?: string
   data: PieDatum[]
   size?: number
+  /** Highlighted label for this chart (mana on Colors, tribe on Tribes); dims other slices */
+  spotlightActiveLabel?: string | null
+  /** Toggle spotlight for clicked label (same label again clears) */
+  onSpotlightToggle?: (label: string) => void
 }
 
 type HoverState = {
@@ -78,8 +82,16 @@ function highlightForBase(hex: string): string {
   return rgbToHex(r + 38, g + 38, b + 38)
 }
 
-export function PieChart({ title, data, size = 220 }: Props) {
+export function PieChart({
+  title,
+  data,
+  size = 220,
+  spotlightActiveLabel = null,
+  onSpotlightToggle,
+}: Props) {
   const [hover, setHover] = useState<HoverState>(null)
+  const interactive = Boolean(onSpotlightToggle)
+  const dimOthers = interactive && spotlightActiveLabel != null && spotlightActiveLabel !== ''
   /** SVG `id` is global in the document; each chart needs unique gradient ids or `url(#…)` resolves to the first match (wrong colors). */
   const chartUid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const gradId = (i: number) => `pie-grad-${chartUid}-${i}`
@@ -102,13 +114,15 @@ export function PieChart({ title, data, size = 220 }: Props) {
   const r = size / 2
   const cx = r
   const cy = r
+  const loneSlice = total > 0 && slices.length === 1 ? slices[0] : null
+  const sliceRadius = r - 2
 
   return (
     <div className="pieCard">
       {title ? <div className="pieTitle">{title}</div> : null}
 
       <div
-        className="pieWrap"
+        className={`pieWrap${interactive ? ' pieWrap--interactive' : ''}`}
         onMouseLeave={() => setHover(null)}
       >
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -127,10 +141,41 @@ export function PieChart({ title, data, size = 220 }: Props) {
             </defs>
           ) : null}
           {total <= 0 ? (
-            <circle cx={cx} cy={cy} r={r - 2} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" />
+            <circle cx={cx} cy={cy} r={sliceRadius} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" />
+          ) : loneSlice ? (
+            <circle
+              key={loneSlice.label}
+              cx={cx}
+              cy={cy}
+              r={sliceRadius}
+              fill={`url(#${gradId(0)})`}
+              stroke="rgba(0,0,0,0.5)"
+              strokeWidth={1}
+              opacity={!dimOthers || loneSlice.label === spotlightActiveLabel ? 1 : 0.28}
+              onMouseMove={(e) => {
+                const percent = total > 0 ? (loneSlice.value / total) * 100 : 0
+                setHover({
+                  label: loneSlice.label,
+                  value: loneSlice.value,
+                  percent,
+                  color: loneSlice.color,
+                  clientX: e.clientX,
+                  clientY: e.clientY,
+                })
+              }}
+              onClick={
+                onSpotlightToggle
+                  ? () => {
+                      onSpotlightToggle(loneSlice.label)
+                    }
+                  : undefined
+              }
+            />
           ) : (
             slices.map((s, i) => {
-              const d = arcPath(cx, cy, r - 2, s.startAngle, s.endAngle)
+              const d = arcPath(cx, cy, sliceRadius, s.startAngle, s.endAngle)
+              const isLit = !dimOthers || s.label === spotlightActiveLabel
+              const opacity = isLit ? 1 : 0.28
               return (
                 <path
                   key={s.label}
@@ -138,6 +183,7 @@ export function PieChart({ title, data, size = 220 }: Props) {
                   fill={`url(#${gradId(i)})`}
                   stroke="rgba(0,0,0,0.5)"
                   strokeWidth={1}
+                  opacity={opacity}
                   onMouseMove={(e) => {
                     const percent = total > 0 ? (s.value / total) * 100 : 0
                     setHover({
@@ -149,6 +195,13 @@ export function PieChart({ title, data, size = 220 }: Props) {
                       clientY: e.clientY,
                     })
                   }}
+                  onClick={
+                    onSpotlightToggle
+                      ? () => {
+                          onSpotlightToggle(s.label)
+                        }
+                      : undefined
+                  }
                 />
               )
             })
@@ -178,13 +231,32 @@ export function PieChart({ title, data, size = 220 }: Props) {
 
       {total > 0 ? (
         <div className="pieLegend">
-          {slices.slice(0, 10).map((s) => (
-            <div key={s.label} className="pieLegendItem">
-              <span className="pieSwatch" style={{ background: s.color }} />
-              <span className="pieLegendLabel">{s.label}</span>
-              <span className="pieLegendValue">{((s.value / total) * 100).toFixed(1)}%</span>
-            </div>
-          ))}
+          {slices.slice(0, 10).map((s) => {
+            const pressed = interactive && spotlightActiveLabel === s.label
+            const dimLegend = dimOthers && spotlightActiveLabel !== s.label
+            if (onSpotlightToggle) {
+              return (
+                <button
+                  key={s.label}
+                  type="button"
+                  className={`pieLegendItem pieLegendItemButton${pressed ? ' isSpotlight' : ''}${dimLegend ? ' isDimmed' : ''}`}
+                  aria-pressed={pressed}
+                  onClick={() => onSpotlightToggle(s.label)}
+                >
+                  <span className="pieSwatch" style={{ background: s.color }} />
+                  <span className="pieLegendLabel">{s.label}</span>
+                  <span className="pieLegendValue">{((s.value / total) * 100).toFixed(1)}%</span>
+                </button>
+              )
+            }
+            return (
+              <div key={s.label} className="pieLegendItem">
+                <span className="pieSwatch" style={{ background: s.color }} />
+                <span className="pieLegendLabel">{s.label}</span>
+                <span className="pieLegendValue">{((s.value / total) * 100).toFixed(1)}%</span>
+              </div>
+            )
+          })}
         </div>
       ) : (
         <div className="pieEmpty">No data</div>

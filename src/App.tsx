@@ -11,11 +11,17 @@ import {
   csvTableToSheetRows,
   distinctCountries,
   filterRowsByCountries,
+  filterRowsByManaLetter,
+  filterRowsByTribe,
+  normalizeManaLetter,
 } from './lib/stats'
 
-type SortState =
-  | { key: 'Country'; dir: 'asc' | 'desc' }
-  | { key: null; dir: 'asc' | 'desc' }
+type SectionSpotlight = {
+  mana: string | null
+  tribe: string | null
+}
+
+const emptySectionSpotlight: SectionSpotlight = { mana: null, tribe: null }
 
 /** Dark, saturated mana tones inspired by MTG promo key art (metallic W, deep U/B, ember R, forest G). */
 const MTG_COLOR_PALETTE: Record<string, string> = {
@@ -41,7 +47,30 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedCountries, setSelectedCountries] = useState<Set<string>>(new Set())
-  const [sort, setSort] = useState<SortState>({ key: null, dir: 'asc' })
+  const [spotlightGlobal, setSpotlightGlobal] = useState<SectionSpotlight>(emptySectionSpotlight)
+  const [spotlightFiltered, setSpotlightFiltered] = useState<SectionSpotlight>(emptySectionSpotlight)
+
+  const toggleManaSpotlight = (scope: 'global' | 'filtered', letter: string) => {
+    const L = normalizeManaLetter(letter)
+    if (!L) return
+    const setSection = scope === 'global' ? setSpotlightGlobal : setSpotlightFiltered
+    setSection((prev) => {
+      const nextMana = prev.mana === L ? null : L
+      if (nextMana === null) return { ...prev, mana: null }
+      return { mana: nextMana, tribe: null }
+    })
+  }
+
+  const toggleTribeSpotlight = (scope: 'global' | 'filtered', tribe: string) => {
+    const t = tribe.trim()
+    if (!t) return
+    const setSection = scope === 'global' ? setSpotlightGlobal : setSpotlightFiltered
+    setSection((prev) => {
+      const nextTribe = prev.tribe === t ? null : t
+      if (nextTribe === null) return { ...prev, tribe: null }
+      return { mana: null, tribe: nextTribe }
+    })
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -89,51 +118,43 @@ function App() {
 
   const globalTribeData = useMemo<PieDatum[]>(() => {
     if (!allRows) return []
-    return countsToSortedPairs(computeTribeCounts(allRows)).map((p) => ({
+    const base = spotlightGlobal.mana ? filterRowsByManaLetter(allRows, spotlightGlobal.mana) : allRows
+    return countsToSortedPairs(computeTribeCounts(base)).map((p) => ({
       label: p.label,
       value: p.value,
       color: hashColor(p.label),
     }))
-  }, [allRows])
+  }, [allRows, spotlightGlobal.mana])
 
   const filteredTribeData = useMemo<PieDatum[]>(() => {
     if (!filteredRows) return []
-    return countsToSortedPairs(computeTribeCounts(filteredRows)).map((p) => ({
+    const base = spotlightFiltered.mana ? filterRowsByManaLetter(filteredRows, spotlightFiltered.mana) : filteredRows
+    return countsToSortedPairs(computeTribeCounts(base)).map((p) => ({
       label: p.label,
       value: p.value,
       color: hashColor(p.label),
     }))
-  }, [filteredRows])
+  }, [filteredRows, spotlightFiltered.mana])
 
   const globalColorData = useMemo<PieDatum[]>(() => {
     if (!allRows) return []
-    return countsToSortedPairs(computeColorCounts(allRows)).map((p) => ({
+    const base = spotlightGlobal.tribe ? filterRowsByTribe(allRows, spotlightGlobal.tribe) : allRows
+    return countsToSortedPairs(computeColorCounts(base)).map((p) => ({
       label: p.label,
       value: p.value,
       color: MTG_COLOR_PALETTE[p.label] ?? hashColor(p.label),
     }))
-  }, [allRows])
+  }, [allRows, spotlightGlobal.tribe])
 
   const filteredColorData = useMemo<PieDatum[]>(() => {
     if (!filteredRows) return []
-    return countsToSortedPairs(computeColorCounts(filteredRows)).map((p) => ({
+    const base = spotlightFiltered.tribe ? filterRowsByTribe(filteredRows, spotlightFiltered.tribe) : filteredRows
+    return countsToSortedPairs(computeColorCounts(base)).map((p) => ({
       label: p.label,
       value: p.value,
       color: MTG_COLOR_PALETTE[p.label] ?? hashColor(p.label),
     }))
-  }, [filteredRows])
-
-  const sortedTableRows = useMemo(() => {
-    if (!table) return null
-    if (sort.key !== 'Country') return table.rows
-    const idx = table.headers.findIndex((h) => h.trim().toLowerCase() === 'country')
-    if (idx < 0) return table.rows
-    const dirMul = sort.dir === 'asc' ? 1 : -1
-    return [...table.rows].sort((a, b) => {
-      const av = String(a[idx] ?? '').localeCompare(String(b[idx] ?? ''))
-      return av * dirMul
-    })
-  }, [table, sort])
+  }, [filteredRows, spotlightFiltered.tribe])
 
   const summary = useMemo(() => {
     if (!table) return null
@@ -166,45 +187,25 @@ function App() {
 
         {!isLoading && !error && table ? (
           <div className="panelInner">
-            <aside className="sidebar">
-              <CountryFilterPanel
-                countries={countries}
-                selectedCountries={selectedCountries}
-                onToggleCountry={(country) => {
-                  setSelectedCountries((prev) => {
-                    const next = new Set(prev)
-                    if (next.has(country)) next.delete(country)
-                    else next.add(country)
-                    return next
-                  })
-                }}
-                onSelectAll={() => setSelectedCountries(new Set(countries))}
-                onClear={() => setSelectedCountries(new Set())}
-              />
-
-              <div className="sortPanel">
-                <div className="sortTitle">Sort</div>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() =>
-                    setSort((prev) => {
-                      if (prev.key !== 'Country') return { key: 'Country', dir: 'asc' }
-                      if (prev.dir === 'asc') return { key: 'Country', dir: 'desc' }
-                      return { key: null, dir: 'asc' }
-                    })
-                  }
-                >
-                  Country{' '}
-                  <span className="sortHint">
-                    {sort.key === 'Country' ? (sort.dir === 'asc' ? '↑' : '↓') : '—'}
-                  </span>
-                </button>
-                <div className="sortMeta">Click to toggle asc/desc/off.</div>
-              </div>
-            </aside>
-
             <div className="content">
+              <div className="countriesBar">
+                <CountryFilterPanel
+                  className="countryPanel--horizontal"
+                  countries={countries}
+                  selectedCountries={selectedCountries}
+                  onToggleCountry={(country) => {
+                    setSelectedCountries((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(country)) next.delete(country)
+                      else next.add(country)
+                      return next
+                    })
+                  }}
+                  onSelectAll={() => setSelectedCountries(new Set(countries))}
+                  onClear={() => setSelectedCountries(new Set())}
+                />
+              </div>
+
               <div className="chartsGrid">
                 <div className="chartsColumn">
                   <div className="chartsHeader">
@@ -212,8 +213,18 @@ function App() {
                     <div className="chartsMeta">{allRows?.length ?? 0} rows</div>
                   </div>
                   <div className="chartsRow">
-                    <PieChart title="Colors" data={globalColorData} />
-                    <PieChart title="Tribes" data={globalTribeData} />
+                    <PieChart
+                      title="Colors"
+                      data={globalColorData}
+                      spotlightActiveLabel={spotlightGlobal.mana}
+                      onSpotlightToggle={(label) => toggleManaSpotlight('global', label)}
+                    />
+                    <PieChart
+                      title="Tribes"
+                      data={globalTribeData}
+                      spotlightActiveLabel={spotlightGlobal.tribe}
+                      onSpotlightToggle={(label) => toggleTribeSpotlight('global', label)}
+                    />
                   </div>
                 </div>
 
@@ -223,11 +234,71 @@ function App() {
                     <div className="chartsMeta">{filteredRows?.length ?? 0} rows</div>
                   </div>
                   <div className="chartsRow">
-                    <PieChart title="Colors" data={filteredColorData} />
-                    <PieChart title="Tribes" data={filteredTribeData} />
+                    <PieChart
+                      title="Colors"
+                      data={filteredColorData}
+                      spotlightActiveLabel={spotlightFiltered.mana}
+                      onSpotlightToggle={(label) => toggleManaSpotlight('filtered', label)}
+                    />
+                    <PieChart
+                      title="Tribes"
+                      data={filteredTribeData}
+                      spotlightActiveLabel={spotlightFiltered.tribe}
+                      onSpotlightToggle={(label) => toggleTribeSpotlight('filtered', label)}
+                    />
                   </div>
                 </div>
               </div>
+
+              {spotlightGlobal.mana ||
+              spotlightGlobal.tribe ||
+              spotlightFiltered.mana ||
+              spotlightFiltered.tribe ? (
+                <div className="spotlightBar">
+                  <div className="spotlightBarGroup">
+                    <span className="spotlightBarLabel">Global</span>
+                    {spotlightGlobal.mana ? (
+                      <button
+                        type="button"
+                        className="btn btnSmall"
+                        onClick={() => setSpotlightGlobal((s) => ({ ...s, mana: null }))}
+                      >
+                        Clear mana ({spotlightGlobal.mana})
+                      </button>
+                    ) : null}
+                    {spotlightGlobal.tribe ? (
+                      <button
+                        type="button"
+                        className="btn btnSmall"
+                        onClick={() => setSpotlightGlobal((s) => ({ ...s, tribe: null }))}
+                      >
+                        Clear tribe ({spotlightGlobal.tribe})
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="spotlightBarGroup">
+                    <span className="spotlightBarLabel">Filtered</span>
+                    {spotlightFiltered.mana ? (
+                      <button
+                        type="button"
+                        className="btn btnSmall"
+                        onClick={() => setSpotlightFiltered((s) => ({ ...s, mana: null }))}
+                      >
+                        Clear mana ({spotlightFiltered.mana})
+                      </button>
+                    ) : null}
+                    {spotlightFiltered.tribe ? (
+                      <button
+                        type="button"
+                        className="btn btnSmall"
+                        onClick={() => setSpotlightFiltered((s) => ({ ...s, tribe: null }))}
+                      >
+                        Clear tribe ({spotlightFiltered.tribe})
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="tableWrap">
                 <table>
@@ -239,7 +310,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(sortedTableRows ?? table.rows).map((row, rIdx) => (
+                    {table.rows.map((row, rIdx) => (
                       <tr key={rIdx}>
                         {table.headers.map((_, cIdx) => (
                           <td key={cIdx}>{row[cIdx] ?? ''}</td>
